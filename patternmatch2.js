@@ -1,7 +1,3 @@
-// look into bind() for binding variables from the pattern
-// or define vars in evalPatterns so they're in the outer scope of the function when called
-// only way I can think of getting variable names in pattern is as strings (or ES6 symbols?)
-
 const wc = '_';
 const log = console.log;
 
@@ -16,18 +12,21 @@ const cons = (a,b) => new Cons(a,b);
 
 const list = cons(1, cons(2, null));
 
+// Match integers
 function factorial(n) {
 	return evalPatterns([n],
                [[ 0 ], () => 1],
                [['_'], () => n * factorial(n - 1)]);
 }
 
+// Match multiple values
 function addIfOne (a, b) {
-  return evalPatterns([a, b],
-               [[1, '_'], (a, b) => a + b],
-               [['_', '_'], () => 0])
+  return evalPatterns([a, b], 
+                [[1, '_'], () => a + b],
+                [['_', '_'], () => 0])
 }
 
+// Match custom constructor
 function numOnes(list) {
 	return evalPatterns([list],
                [[null], () => 0],
@@ -35,11 +34,20 @@ function numOnes(list) {
                [[[Cons, '_', '_']], (lst) => numOnes(lst.cdr)]);
 }
 
+// Match multiple values of mixed constructors
 function take(n, list) {
   return evalPatterns([n, list],
-                [[0, '_'], () => []],
-                [['_', null], () => []],
-                [['_', [Cons, '_', '_']], (n, lst) => [lst.car, ...take(n - 1, lst.cdr)]]);
+                [[0, '_'], () => null],
+                [['_', null], () => null],
+                [['_', [Cons, '_', '_']], (n, lst) => cons(lst.car, take(n - 1, lst.cdr))]);
+}
+
+// Match nested constructors
+function everyOther(list) {
+  return evalPatterns([list],
+                [[null], () => null],
+                [[[Cons, '_', null]], () => null],
+                [[[Cons, '_', [Cons, '_', '_']]], (lst) => cons(lst.cdr.car, everyOther(lst.cdr.cdr))]);
 }
 
 function evalPatterns(args, ...ps) {
@@ -83,3 +91,4 @@ Number.prototype.match = function (pattern) {
 log(numOnes(null));
 log(numOnes(list));
 log(take(2, cons(5,cons(6, cons(7, cons(8, null))))));
+log(everyOther(cons(5,cons(6, cons(7, cons(8, null))))));
