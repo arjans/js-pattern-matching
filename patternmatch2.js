@@ -1,3 +1,8 @@
+const esprima = require('esprima');
+const escodegen = require('escodegen');
+const walk = require('esprima-walk');
+const pp = (s) => JSON.stringify(s, null, 4);
+const parse = (p) => esprima.parse(p.toString()).body[0].expression.body.body[0].expression.expressions;
 const wc = '_';
 const log = console.log;
 
@@ -12,83 +17,89 @@ const cons = (a,b) => new Cons(a,b);
 
 const list = cons(1, cons(2, null));
 
-// Match integers
-function factorial(n) {
-	return evalPatterns([n],
-               [[ 0 ], () => 1],
-               [['_'], () => n * factorial(n - 1)]);
+function numOnes(xs) {
+  return match(xs, () => {
+    [Cons(1, a), 1 + numOnes(a)],
+    [Cons(_, a), numOnes(a)]
+  })
 }
 
-// Match multiple values
-function addIfOne (a, b) {
-  return evalPatterns([a, b], 
-                [[1, '_'], () => a + b],
-                [['_', '_'], () => 0])
-}
+const predicate = p => p.elements[0];
+const predicand = p => p.elements[1];
 
-// Match custom constructor
-function numOnes(list) {
-	return evalPatterns([list],
-               [[null], () => 0],
-               [[[Cons, 1, '_']], (lst) => 1 + numOnes(lst.cdr)],
-               [[[Cons, '_', '_']], (lst) => numOnes(lst.cdr)]);
-}
-
-// Match multiple values of mixed constructors
-function take(n, list) {
-  return evalPatterns([n, list],
-                [[0, '_'], () => null],
-                [['_', null], () => null],
-                [['_', [Cons, '_', '_']], (n, lst) => cons(lst.car, take(n - 1, lst.cdr))]);
-}
-
-// Match nested constructors
-function everyOther(list) {
-  return evalPatterns([list],
-                [[null], () => null],
-                [[[Cons, '_', null]], () => null],
-                [[[Cons, '_', [Cons, '_', '_']]], (lst) => cons(lst.cdr.car, everyOther(lst.cdr.cdr))]);
-}
-
-function evalPatterns(args, ...ps) {
-  let l = ps.length, i = 0, matched = false, vals = [];
+function match(args, thunk) {
+  const pairs = parse(thunk);
+  let l = pairs.length, i = 0, matched = false;
   while (i < l) {
-    if (match(transformArgs(args), ps[i][0])) {
-      return ps[i][1](...args);
+    let locals = {};
+    if (isMatch(args, predicate(pairs[i]), locals)) {
+      const f = predicand(pairs[i]);
+      // return eval(replace(f, locals));
+      return replace(f, locals);
     }
     i++;
   }
   return false;
 }
+const isIdent = s => s.type === 'Identifier';
+const isWC = p => isIdent(p) && p.name === '_';
+const isCaps = s => s.toUpperCase() === s;
+const isConstructor = p => isIdent(p.callee) && isCaps(p.callee.name[0]);
+const isVar = p => isIdent(p) && !isCaps(p.name[0]);
+const isPrimMatch = (p, v) => p.type === 'Literal' && p.value === v;
+const getConstructor = v => {
+  let x = v.constructor.toString();
+  return x.match(/[A-Z][^\W]*/)[0]
+}
 
-function match(vals, pats) {
-  return pats.every((p,i) =>{
-    let v = vals[i];
-    if (p === wc) return true;
-    if (Array.isArray(p) && Array.isArray(v)) return match(v,p);
-    return p === v;
+function isMatch(val, pat, locals) {
+  val = Array.isArray(val) ? val : [val]
+  pat = Array.isArray(pat) ? pat : [pat]
+  return pat.every((p, i) => {
+    let v = val[i];
+    if (Array.isArray(p) && Array.isArray(v)) 
+      return isMatch(v, p, locals);
+    if (isWC(p)) return true;
+    if (isVar(p)) {
+      locals[p.name] = v;
+      return true;
+    }
+    if (isPrimMatch(p, v)) return true;
+    if (p.callee && isConstructor(p) && getConstructor(v) === p.callee.name) 
+      return isMatch(Object.values(v), p.arguments, locals)
   })
 }
 
-function transformArgs(args) {
-  if (Array.isArray(args)) return args.map(transformArgs);
-  if (isPrim(args)) return args;
-  return [args.constructor, ...Object.values(args).map(transformArgs)];
+function replace(f, locals) {
+  const rep = node => {
+    let val = locals[node.name]
+    if (node.type === "Identifier" && val) {
+      // const newNode = esprima.parse(val.toString())
+      log(val);
+      node.type = "Literal";
+      node.value = val;
+      node.raw = JSON.stringify(val);
+      delete node.name;
+    }
+  }
+  walk(f, rep);
+  // return escodegen.generate(f);
+  return f;
 }
 
-function isPrim(x) {
-  if (null === x) return true;
-  const type = typeof x,
-    ts = ['number', 'string', 'boolean'];
-  return ts.some(t => t === type);
+let x = esprima.parse('50 + 5')
+const cons1 = (a, b) => new Cons(b, a);
+const zs = [3, 2, 1, 1].reduce(cons1, null);
+const tk = () => {
+  [Cons(1, a), 1 + numOnes(a)],
+  [Cons(_, a), numOnes(a)]
 }
+// log(match(zs, tk))
+// log(eval(escodegen.generate(x)))
+const ast = parse(() => {
+  [Cons(1, a), 1 + numOnes(a)],
+  [Cons(_, a), numOnes(a)]
+})
 
-Number.prototype.match = function (pattern) {
-  if (pattern === wc) return true;
-  return this.valueOf() === pattern;
-}
-
-log(numOnes(null));
-log(numOnes(list));
-log(take(2, cons(5,cons(6, cons(7, cons(8, null))))));
-log(everyOther(cons(5,cons(6, cons(7, cons(8, null))))));
+const toRep = { type: "Literal", value: 5, raw: (5).toString() }
+log(pp(match(zs, tk)))
