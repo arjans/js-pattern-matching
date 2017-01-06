@@ -1,5 +1,5 @@
-// missing: lambdas, repetition of variable to show equality (e.g., [a,b,a])
 // avoid repeatedly calling Object.values on same variable?
+
 module.exports = function(babel) {
   const t = babel.types;
 
@@ -7,59 +7,70 @@ module.exports = function(babel) {
         isWC = n => isIdent(n) && n.name === '_',
         isCaps = s => s.toUpperCase() === s,
         isVar = n => isIdent(n) && !isCaps(n.name[0]),
+        isArr = n => t.isArrayExpression(n),
+        isLambda = n => t.isArrowFunctionExpression(n),
         isConstructor = n => t.isCallExpression(n) && isCaps(n.callee.name[0]),
         getConstructor = n => t.memberExpression(t.memberExpression(n, t.identifier('constructor')), t.identifier('name')),
         objVals = n => t.callExpression(t.memberExpression(t.identifier('Object'), t.identifier('values')), [n]),
         index = (n, i) => t.memberExpression(n, t.numericLiteral(i), true),
         makeLet = p => t.variableDeclaration("let", [t.variableDeclarator(p[0], p[1])]),
-        makeAnd = (a, b) => t.logicalExpression('&&', a, b),
-        makeEq = (a, b) => t.binaryExpression('===', a, b),
+        makeAnd = (x, y) => t.logicalExpression('&&', x, y),
+        makeEq = (x, y) => t.binaryExpression('===', x, y),
         pLength = p => t.isArrayExpression(p) ? p.elements.length : p.arguments.length,
         thunk = x => t.arrowFunctionExpression([], Array.isArray(x) ? t.blockStatement(x) : x),
-        call = (f, arr) => t.callExpression(f, arr);
+        call = (f, x) => t.callExpression(f, Array.isArray(x) ? x : [x]),
+        makeIf = (x, y) => t.ifStatement(x, Array.isArray(y) ? t.blockStatement(y) : y),
+        bool = x => t.booleanLiteral(x),
+        str = x => t.stringLiteral(x),
+        num = x => t.numericLiteral(x),
+        ident = x => t.identifier(x),
+        method = (x,y) => t.memberExpression(x,y),
+        ret = x => t.returnStatement(x);
 
   function makeCondition(a, p, l) {
-    // if function or lambda, apply to 'a'
-    // maybe also assign a to a variable
+    // wildcard
     if (isWC(p))
-      return t.booleanLiteral(true);
+      return bool(true);
+    // variable
     if (isVar(p)) {
-      l.push([p, a])
-      return t.booleanLiteral(true);
+      l.push([p, a]);
+      return bool(true);
     }
+    // function
+    if (isLambda(p)) {
+      l.push([p.params[0], a]);
+      return call(p, a);
+    }
+    // constructor
     if (isConstructor(p)) {
       let conditions = [];
       conditions.push(a);
-      conditions.push(makeEq(getConstructor(a), t.stringLiteral(p.callee.name)));
-      conditions.push(makeEq(t.numericLiteral(pLength(p)),
-        t.memberExpression(objVals(a), t.identifier('length'))));
+      conditions.push(makeEq(getConstructor(a), str(p.callee.name)));
+      conditions.push(makeEq(num(pLength(p)),
+                      method(objVals(a), ident('length'))));
       conditions = conditions.concat(p.arguments.map((e, i) => makeCondition(index(objVals(a), i), e, l)));
       return conditions.reduce(makeAnd);
     }
-    if (t.isArrayExpression(p)) {
+    // array
+    if (isArr(p)) {
       let conditions = [];
-      conditions.push(makeEq(t.numericLiteral(pLength(p)),
-        t.memberExpression(objVals(a), t.identifier('length'))));
+      conditions.push(makeEq(num(pLength(p)),
+                      method(objVals(a), ident('length'))));
       conditions = conditions.concat(p.elements.map((e, i) => makeCondition(index(objVals(a), i), e, l)));
       return conditions.reduce(makeAnd);
     }
+    // literal
     return makeEq(a, p);
   }
-
 
   function convertPairToConditional(arg) {
     // return a function of one argument so it can be used to map over patExprPairs
     return (pair) => {
-      // array to collect local variables bound in the pattern
       let locals = [];
-      // convert pattern to if statement
       let condition = makeCondition(arg, pair.elements[0], locals);
-      // turn locals array into a let statement
-      // the expression part of the pattern-expression pair in 'match' remains exactly the same
-      let consequent = t.blockStatement(locals.map(makeLet)
-                                              .concat(t.returnStatement(pair.elements[1])));
+      let consequent = locals.map(makeLet).concat(ret(pair.elements[1]));
 
-      return t.ifStatement(condition, consequent);
+      return makeIf(condition, consequent);
     };
   }
 

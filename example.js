@@ -21,9 +21,10 @@ function test(xs) {
 }
 
 function t(x) {
-  let z = match(x, [[], 5], [[1,2,3], 6], [[1,2,3,_], 7])
+  const isTwo = (x) => x == 2;
+  let z = match(x, [[(y) => isTwo(y)], y + 5], [[1,a,3], a], [[1,2,3,_], 7])
   log('z', z)
   return "IT WORKED"
 }
 
-log(t([]))
+log(t([1,2,3]))

@@ -42,13 +42,16 @@ function test(xs) {
 }
 
 function t(x) {
+  const isTwo = x => x == 2;
   let z = (() => {
-    if (0 === Object.values(x).length) {
-      return 5;
+    if (1 === Object.values(x).length && (y => isTwo(y))(Object.values(x)[0])) {
+      let y = Object.values(x)[0];
+      return y + 5;
     }
 
-    if (3 === Object.values(x).length && Object.values(x)[0] === 1 && Object.values(x)[1] === 2 && Object.values(x)[2] === 3) {
-      return 6;
+    if (3 === Object.values(x).length && Object.values(x)[0] === 1 && true && Object.values(x)[2] === 3) {
+      let a = Object.values(x)[1];
+      return a;
     }
 
     if (4 === Object.values(x).length && Object.values(x)[0] === 1 && Object.values(x)[1] === 2 && Object.values(x)[2] === 3 && true) {
@@ -59,4 +62,4 @@ function t(x) {
   return "IT WORKED";
 }
 
-log(t([]));
+log(t([1, 2, 3]));
