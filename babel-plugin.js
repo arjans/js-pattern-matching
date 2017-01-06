@@ -15,6 +15,7 @@ module.exports = function(babel) {
         index = (n, i) => t.memberExpression(n, t.numericLiteral(i), true),
         makeLet = p => t.variableDeclaration("let", [t.variableDeclarator(p[0], p[1])]),
         makeAnd = (x, y) => t.logicalExpression('&&', x, y),
+        makeOr = (x, y) => t.logicalExpression('||', x, y),
         makeEq = (x, y) => t.binaryExpression('===', x, y),
         pLength = p => t.isArrayExpression(p) ? p.elements.length : p.arguments.length,
         thunk = x => t.arrowFunctionExpression([], Array.isArray(x) ? t.blockStatement(x) : x),
@@ -58,6 +59,10 @@ module.exports = function(babel) {
                       method(objVals(a), ident('length'))));
       conditions = conditions.concat(p.elements.map((e, i) => makeCondition(index(objVals(a), i), e, l)));
       return conditions.reduce(makeAnd);
+    }
+    // multiple patterns ||'ed together
+    if (t.isLogicalExpression(p) && p.operator === '||') {
+      return makeOr(makeCondition(a,p.left,l), makeCondition(a,p.right,l))
     }
     // literal
     return makeEq(a, p);
