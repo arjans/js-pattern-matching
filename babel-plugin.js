@@ -8,6 +8,7 @@ module.exports = function(babel) {
         isCaps = s => s.toUpperCase() === s,
         isVar = n => isIdent(n) && !isCaps(n.name[0]),
         isArr = n => t.isArrayExpression(n),
+        isOr = n => t.isLogicalExpression(n) && n.operator === '||',
         isLambda = n => t.isArrowFunctionExpression(n),
         isConstructor = n => t.isCallExpression(n) && isCaps(n.callee.name[0]),
         getConstructor = n => t.memberExpression(t.memberExpression(n, t.identifier('constructor')), t.identifier('name')),
@@ -61,7 +62,7 @@ module.exports = function(babel) {
       return conditions.reduce(makeAnd);
     }
     // multiple patterns ||'ed together
-    if (t.isLogicalExpression(p) && p.operator === '||') {
+    if (isOr(p)) {
       return makeOr(makeCondition(a,p.left,l), makeCondition(a,p.right,l))
     }
     // literal
