@@ -20,9 +20,9 @@ function test(xs) {
   log('testttt',match(xs, [Cons(1, Cons(2, null)), a], [Cons(3, _), 4]))
 }
 
-function t(x,y) {
-  let x = match([x,y], [[], 5], [[1,2,3], 6], [[1,2,3,_], 7])
-  log('x', x)
+function t(x) {
+  let z = match(x, [[], 5], [[1,2,3], 6], [[1,2,3,_], 7])
+  log('z', z)
   return "IT WORKED"
 }
 
