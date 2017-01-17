@@ -1,4 +1,5 @@
 // avoid repeatedly calling Object.values on same variable?
+// add tuples
 
 module.exports = function(babel) {
   const t = babel.types;
@@ -35,8 +36,12 @@ module.exports = function(babel) {
       return bool(true);
     // variable
     if (isVar(p)) {
-      l.push([p, a]);
-      return bool(true);
+      if (pair = l.find(arr => arr[0].name === p.name)) {
+        return makeEq(pair[1], a)
+      } else {
+        l.push([p, a]);
+        return bool(true);        
+      }
     }
     // function
     if (isLambda(p)) {
@@ -62,9 +67,9 @@ module.exports = function(babel) {
       return conditions.reduce(makeAnd);
     }
     // multiple patterns ||'ed together
-    if (isOr(p)) {
-      return makeOr(makeCondition(a,p.left,l), makeCondition(a,p.right,l))
-    }
+    // if (isOr(p)) {
+    //   return makeOr(makeCondition(a,p.left,l), makeCondition(a,p.right,l))
+    // }
     // literal
     return makeEq(a, p);
   }
