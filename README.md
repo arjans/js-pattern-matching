@@ -14,7 +14,7 @@ An example in Haskell:
 map _ []     = []
 map f (x:xs) = f x : map f xs
 ```
-The above function `map` has two function bodies, depending on which arguments are given to it. The first line matches anything that's passed as the first argument, only an empty list as the second, then returns the empty list. The second line matches anything as the first argument, binds it to `f`, then matches the second argument against the  `:` (cons) constructor, and executes the function body using those variable bindings.
+The above function `map` has two function bodies, depending on which arguments are given to it. The first line matches anything that's passed as the first argument, only an empty list as the second, then returns the empty list. The second line matches anything as the first argument, binds it to `f`, then matches the second argument against the  `:` (cons) constructor, and executes the function body using those variable bindings. Depending on which pattern the two arguments to map match against, it'll return either an empty list or the result of evaluating `f x : map f xs`.
 
 It's a powerful language feature that you can think of as combining argument destructuring and conditionals.
 
