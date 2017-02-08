@@ -1,6 +1,3 @@
-// avoid repeatedly calling Object.values on same variable?
-// add tuples
-
 module.exports = function(babel) {
   const t = babel.types;
 
@@ -40,7 +37,7 @@ module.exports = function(babel) {
         return makeEq(pair[1], a)
       } else {
         l.push([p, a]);
-        return bool(true);        
+        return bool(true);
       }
     }
     // function
@@ -66,11 +63,6 @@ module.exports = function(babel) {
       conditions = conditions.concat(p.elements.map((e, i) => makeCondition(index(objVals(a), i), e, l)));
       return conditions.reduce(makeAnd);
     }
-    // multiple patterns ||'ed together
-    // if (isOr(p)) {
-    //   return makeOr(makeCondition(a,p.left,l), makeCondition(a,p.right,l))
-    // }
-    // literal
     return makeEq(a, p);
   }
 
